@@ -1,0 +1,40 @@
+name: StochRSI Daily Scanner
+
+on:
+  schedule:
+    # Runs at 03:30 UTC = 09:00 AM IST every day
+    - cron: "30 3 * * *"
+
+  # Allows you to trigger the scan manually from GitHub UI anytime
+  workflow_dispatch:
+    inputs:
+      threshold:
+        description: "Stoch RSI K threshold (default: 10)"
+        required: false
+        default: "10"
+
+jobs:
+  scan:
+    name: Run StochRSI Scanner
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run scanner
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          STOCH_RSI_THRESHOLD: ${{ github.event.inputs.threshold || vars.STOCH_RSI_THRESHOLD || '10' }}
+        run: python src/scanner.py
