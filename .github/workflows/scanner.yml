@@ -1,11 +1,12 @@
-name: StochRSI Daily Scanner
+name: StochRSI Weekly Scanner
 
 on:
   schedule:
-    # 03:30 UTC = 09:00 AM IST every day
-    - cron: "30 3 * * *"
+    # Every Friday at 14:30 UTC = 8:00 PM IST
+    # (NSE closes 3:30 PM IST, US pre-market opens ~7 PM IST — good weekly close window)
+    - cron: "30 14 * * 5"
 
-  # Manual trigger from GitHub UI — optionally override threshold
+  # Manual trigger from Actions tab — runs immediately regardless of day
   workflow_dispatch:
     inputs:
       threshold:
@@ -15,9 +16,9 @@ on:
 
 jobs:
   scan:
-    name: Run StochRSI Scanner
+    name: Run StochRSI Weekly Scanner
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repository
