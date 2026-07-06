@@ -10,9 +10,12 @@ on:
   workflow_dispatch:
     inputs:
       threshold:
-        description: "Stoch RSI K threshold (default: 10)"
+        description: "Stoch RSI K threshold (default: 20)"
         required: false
-        default: "10"
+        default: "20"
+
+permissions:
+  contents: write   # needed so the workflow can commit the monthly state file back
 
 jobs:
   scan:
@@ -37,5 +40,17 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          STOCH_RSI_THRESHOLD: ${{ github.event.inputs.threshold || vars.STOCH_RSI_THRESHOLD || '10' }}
+          STOCH_RSI_THRESHOLD: ${{ github.event.inputs.threshold || vars.STOCH_RSI_THRESHOLD || '20' }}
         run: python src/scanner.py
+
+      - name: Persist monthly watchlist state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add state/monthly_state.json
+          if git diff --cached --quiet; then
+            echo "No state changes to commit."
+          else
+            git commit -m "chore: update monthly watchlist state [skip ci]"
+            git push
+          fi
