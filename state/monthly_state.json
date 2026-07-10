@@ -1,8 +1,12 @@
 {
   "hits": {
     "ABB.NS": {
-      "date": "06 Jul",
-      "k": 19.88
+      "date": "10 Jul",
+      "k": 9.49
+    },
+    "ADANIPOWER.NS": {
+      "date": "10 Jul",
+      "k": 17.07
     },
     "ARM": {
       "date": "06 Jul",
@@ -25,12 +29,16 @@
       "k": 15.56
     },
     "COALINDIA.NS": {
-      "date": "06 Jul",
-      "k": 5.36
+      "date": "10 Jul",
+      "k": 1.77
     },
     "COST": {
       "date": "06 Jul",
       "k": 0.48
+    },
+    "DMART.NS": {
+      "date": "10 Jul",
+      "k": 15.82
     },
     "DOGECOIN": {
       "date": "06 Jul",
@@ -49,24 +57,24 @@
       "k": 18.65
     },
     "HINDALCO.NS": {
-      "date": "06 Jul",
-      "k": 5.82
+      "date": "10 Jul",
+      "k": 3.19
     },
     "INTC": {
-      "date": "06 Jul",
-      "k": 18.35
+      "date": "10 Jul",
+      "k": 15.79
     },
     "INTU": {
       "date": "06 Jul",
       "k": 11.33
     },
     "MAR": {
-      "date": "06 Jul",
-      "k": 15.1
+      "date": "10 Jul",
+      "k": 14.44
     },
     "MRVL": {
-      "date": "06 Jul",
-      "k": 15.64
+      "date": "10 Jul",
+      "k": 14.29
     },
     "MUTHOOTFIN.NS": {
       "date": "06 Jul",
@@ -81,44 +89,44 @@
       "k": 5.18
     },
     "PEP": {
-      "date": "06 Jul",
-      "k": 15.4
+      "date": "10 Jul",
+      "k": 9.16
     },
     "PFC.NS": {
-      "date": "06 Jul",
-      "k": 13.15
+      "date": "10 Jul",
+      "k": 7.83
     },
     "POLKADOT": {
       "date": "06 Jul",
       "k": 11.75
     },
     "POWERGRID.NS": {
-      "date": "06 Jul",
-      "k": 10.74
+      "date": "10 Jul",
+      "k": 3.71
     },
     "ROST": {
       "date": "06 Jul",
       "k": 0.1
     },
     "TATAPOWER.NS": {
-      "date": "06 Jul",
-      "k": 4.59
+      "date": "10 Jul",
+      "k": 2.9
     },
     "TATASTEEL.NS": {
       "date": "06 Jul",
       "k": 3.63
     },
     "VEDL.NS": {
-      "date": "06 Jul",
-      "k": 8.73
+      "date": "10 Jul",
+      "k": 7.95
     },
     "WBD": {
       "date": "06 Jul",
       "k": 15.34
     },
     "WIPRO.NS": {
-      "date": "06 Jul",
-      "k": 14.73
+      "date": "10 Jul",
+      "k": 7.13
     },
     "ZM": {
       "date": "06 Jul",
