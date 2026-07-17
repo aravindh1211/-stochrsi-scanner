@@ -5,12 +5,12 @@
       "k": 9.49
     },
     "ADANIPOWER.NS": {
-      "date": "10 Jul",
-      "k": 17.07
+      "date": "17 Jul",
+      "k": 2.83
     },
     "ARM": {
-      "date": "06 Jul",
-      "k": 13.1
+      "date": "17 Jul",
+      "k": 5.28
     },
     "AVGO": {
       "date": "06 Jul",
@@ -37,8 +37,8 @@
       "k": 0.48
     },
     "DMART.NS": {
-      "date": "10 Jul",
-      "k": 15.82
+      "date": "17 Jul",
+      "k": 3.96
     },
     "DOGECOIN": {
       "date": "06 Jul",
@@ -48,9 +48,17 @@
       "date": "06 Jul",
       "k": 0.67
     },
+    "FSLR": {
+      "date": "17 Jul",
+      "k": 19.08
+    },
     "GFS": {
-      "date": "06 Jul",
-      "k": 15.38
+      "date": "17 Jul",
+      "k": 1.0
+    },
+    "GOOG": {
+      "date": "17 Jul",
+      "k": 18.33
     },
     "HEROMOTOCO.NS": {
       "date": "06 Jul",
@@ -60,21 +68,45 @@
       "date": "10 Jul",
       "k": 3.19
     },
+    "HON": {
+      "date": "17 Jul",
+      "k": 17.75
+    },
     "INTC": {
-      "date": "10 Jul",
-      "k": 15.79
+      "date": "17 Jul",
+      "k": 1.74
     },
     "INTU": {
       "date": "06 Jul",
       "k": 11.33
     },
+    "KLAC": {
+      "date": "17 Jul",
+      "k": 18.45
+    },
+    "LRCX": {
+      "date": "17 Jul",
+      "k": 15.32
+    },
+    "LT.NS": {
+      "date": "17 Jul",
+      "k": 19.2
+    },
     "MAR": {
-      "date": "10 Jul",
-      "k": 14.44
+      "date": "17 Jul",
+      "k": 2.33
+    },
+    "MCHP": {
+      "date": "17 Jul",
+      "k": 9.78
     },
     "MRVL": {
-      "date": "10 Jul",
-      "k": 14.29
+      "date": "17 Jul",
+      "k": 0.0
+    },
+    "MU": {
+      "date": "17 Jul",
+      "k": 18.13
     },
     "MUTHOOTFIN.NS": {
       "date": "06 Jul",
@@ -85,16 +117,16 @@
       "k": 3.33
     },
     "ON": {
-      "date": "06 Jul",
-      "k": 5.18
+      "date": "17 Jul",
+      "k": 3.55
     },
     "PEP": {
       "date": "10 Jul",
       "k": 9.16
     },
     "PFC.NS": {
-      "date": "10 Jul",
-      "k": 7.83
+      "date": "17 Jul",
+      "k": 1.63
     },
     "POLKADOT": {
       "date": "06 Jul",
@@ -108,6 +140,22 @@
       "date": "06 Jul",
       "k": 0.1
     },
+    "SIEMENS.NS": {
+      "date": "17 Jul",
+      "k": 18.54
+    },
+    "SJVN.NS": {
+      "date": "17 Jul",
+      "k": 16.92
+    },
+    "SMCI": {
+      "date": "17 Jul",
+      "k": 18.17
+    },
+    "TATACONSUM.NS": {
+      "date": "17 Jul",
+      "k": 17.52
+    },
     "TATAPOWER.NS": {
       "date": "10 Jul",
       "k": 2.9
@@ -116,17 +164,21 @@
       "date": "06 Jul",
       "k": 3.63
     },
+    "TXN": {
+      "date": "17 Jul",
+      "k": 19.65
+    },
     "VEDL.NS": {
-      "date": "10 Jul",
-      "k": 7.95
+      "date": "17 Jul",
+      "k": 7.38
     },
     "WBD": {
       "date": "06 Jul",
       "k": 15.34
     },
     "WIPRO.NS": {
-      "date": "10 Jul",
-      "k": 7.13
+      "date": "17 Jul",
+      "k": 7.03
     },
     "ZM": {
       "date": "06 Jul",
