@@ -124,49 +124,33 @@ US_INDICES = [
 ]
 
 # ── Portfolio holdings (tracked WEEKLY, every run) ─────────────────────────────
-# Pulled directly from the consolidated holdings report (direct-equity /
-# ETF / crypto lines that have a tradeable ticker; mutual funds and debt
-# funds without a listed ticker are not scanned).
-HOLDINGS_NSE_STOCKS = [
-    "HDFCBANK.NS",    # HDFC Bank
-    "ICICIBANK.NS",   # ICICI Bank
-    "RECLTD.NS",      # REC Ltd
-    "CIPLA.NS",       # Cipla
-    "RELIANCE.NS",    # Reliance Industries
-    "TCS.NS",         # Tata Consultancy Services
-    "ONGC.NS",        # ONGC
-    "BEL.NS",         # Bharat Electronics
-    "ASHOKLEY.NS",    # Ashok Leyland
-    "NTPC.NS",        # NTPC
-    "IRFC.NS",        # Indian Railway Finance Corp
-]
+# Loaded from holdings.json (repo root) instead of being hardcoded here, so the
+# list can be updated without touching this script — either by editing
+# holdings.json directly, or via the "Update Holdings" workflow
+# (.github/workflows/update-holdings.yml).
+HOLDINGS_FILE = os.environ.get("HOLDINGS_FILE", "holdings.json")
 
-HOLDINGS_US_STOCKS = [
-    "VOO",            # Vanguard S&P 500 ETF
-    "GOOGL",          # Alphabet Inc Class A
-    "EEM",            # iShares MSCI Emerging Markets ETF
-    "VTWO",           # Vanguard Russell 2000 ETF
-    "NVDA",           # NVIDIA Corporation
-    "AMZN",           # Amazon.com Inc
-    "MRK",            # Merck & Co Inc
-    "MSFT",           # Microsoft Corporation
-    "IYH",            # iShares US Healthcare ETF
-    "META",           # Meta Platforms Inc Class A
-    "NFLX",           # Netflix Inc
-    "V",              # Visa Inc
-    "ABBV",           # AbbVie Inc
-    "BRK-B",          # Berkshire Hathaway Inc Class B
-    "TSLA",           # Tesla Inc
-    "AAPL",           # Apple Inc
-    "ACN",            # Accenture PLC
-    "JNJ",            # Johnson & Johnson
-]
 
-HOLDINGS_CRYPTO = [
-    "bitcoin",        # BTC
-    "ethereum",       # ETH
-    "ripple",         # XRP
-]
+def _load_holdings(path: str) -> dict:
+    default = {"nse_stocks": [], "us_stocks": [], "crypto": []}
+    if not os.path.exists(path):
+        log.warning(f"  ⚠ Holdings file '{path}' not found — scanning 0 holdings")
+        return default
+    try:
+        with open(path, "r") as f:
+            data = json.load(f)
+        for key in default:
+            data.setdefault(key, [])
+        return data
+    except Exception as e:
+        log.error(f"  ✗ Failed to load holdings file: {e}")
+        return default
+
+
+_holdings = _load_holdings(HOLDINGS_FILE)
+HOLDINGS_NSE_STOCKS = _holdings["nse_stocks"]
+HOLDINGS_US_STOCKS  = _holdings["us_stocks"]
+HOLDINGS_CRYPTO     = _holdings["crypto"]
 
 # ── Nifty 100 Stocks (NSE) — full universe ─────────────────────────────────────
 NSE_STOCKS_ALL = [
@@ -529,6 +513,36 @@ def is_last_friday_of_month(today: datetime) -> bool:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# WEEKLY LOG (persisted so the monthly digest can compile every weekly
+# holdings/indices notification sent this month — see monthly_digest.py)
+# ══════════════════════════════════════════════════════════════════════════════
+
+WEEKLY_LOG_FILE = os.environ.get("WEEKLY_LOG_FILE", "state/weekly_log.json")
+
+
+def append_weekly_log(today: datetime, triggered: dict, total_scanned: int) -> None:
+    os.makedirs(os.path.dirname(WEEKLY_LOG_FILE) or ".", exist_ok=True)
+    entries = []
+    if os.path.exists(WEEKLY_LOG_FILE):
+        try:
+            with open(WEEKLY_LOG_FILE, "r") as f:
+                entries = json.load(f)
+        except Exception as e:
+            log.error(f"  ✗ Failed to load weekly log, starting fresh: {e}")
+            entries = []
+
+    entries.append({
+        "date": today.strftime("%Y-%m-%d"),
+        "total_scanned": total_scanned,
+        "triggered": {sym: round(k, 2) for sym, k in triggered.items()},
+    })
+
+    with open(WEEKLY_LOG_FILE, "w") as f:
+        json.dump(entries, f, indent=2, sort_keys=True)
+    log.info(f"  📝 Weekly log updated — {len(entries)} week(s) logged so far this month")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # TELEGRAM
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -685,6 +699,11 @@ def main():
     log.info("=" * 60)
 
     send_telegram(build_message(weekly_triggered, total_scanned=len(weekly_k), run_type=run_type))
+
+    # Log this week's holdings/indices notification so the last-day-of-month
+    # digest (src/monthly_digest.py) can compile everything sent this month.
+    if run_type == "scheduled":
+        append_weekly_log(today, weekly_triggered, len(weekly_k))
 
     # ── 2) MONTHLY TRACK — everything else, checked weekly, reported monthly ──
     month_key = today.strftime("%Y-%m")
