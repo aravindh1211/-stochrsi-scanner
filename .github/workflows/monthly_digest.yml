@@ -52,6 +52,7 @@ jobs:
           from datetime import datetime
           entries = m.load_weekly_log()
           m.send_telegram(m.build_digest(entries, datetime.utcnow().strftime('%B %Y')))
+          m.clear_weekly_log()
           "
           else
             python src/monthly_digest.py
@@ -61,6 +62,10 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          mkdir -p state
+          if [ ! -f state/weekly_log.json ]; then
+            echo "[]" > state/weekly_log.json
+          fi
           git add state/weekly_log.json
           if git diff --cached --quiet; then
             echo "No state changes to commit."
