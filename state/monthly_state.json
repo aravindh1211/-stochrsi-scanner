@@ -5,12 +5,20 @@
       "k": 9.49
     },
     "ADANIPOWER.NS": {
-      "date": "17 Jul",
-      "k": 2.83
+      "date": "24 Jul",
+      "k": 0.0
     },
     "ARM": {
-      "date": "17 Jul",
-      "k": 5.28
+      "date": "24 Jul",
+      "k": 3.6
+    },
+    "ASML": {
+      "date": "24 Jul",
+      "k": 10.72
+    },
+    "AUROPHARMA.NS": {
+      "date": "24 Jul",
+      "k": 14.17
     },
     "AVGO": {
       "date": "06 Jul",
@@ -29,12 +37,16 @@
       "k": 15.56
     },
     "COALINDIA.NS": {
-      "date": "10 Jul",
-      "k": 1.77
+      "date": "24 Jul",
+      "k": 0.0
     },
     "COST": {
       "date": "06 Jul",
       "k": 0.48
+    },
+    "CSCO": {
+      "date": "24 Jul",
+      "k": 19.15
     },
     "DMART.NS": {
       "date": "17 Jul",
@@ -44,21 +56,29 @@
       "date": "06 Jul",
       "k": 7.96
     },
+    "DRREDDY.NS": {
+      "date": "24 Jul",
+      "k": 0.0
+    },
+    "ENPH": {
+      "date": "24 Jul",
+      "k": 14.5
+    },
     "FANG": {
       "date": "06 Jul",
       "k": 0.67
     },
     "FSLR": {
-      "date": "17 Jul",
-      "k": 19.08
+      "date": "24 Jul",
+      "k": 13.08
     },
     "GFS": {
-      "date": "17 Jul",
-      "k": 1.0
+      "date": "24 Jul",
+      "k": 0.0
     },
     "GOOG": {
-      "date": "17 Jul",
-      "k": 18.33
+      "date": "24 Jul",
+      "k": 10.39
     },
     "HEROMOTOCO.NS": {
       "date": "06 Jul",
@@ -73,60 +93,80 @@
       "k": 17.75
     },
     "INTC": {
-      "date": "17 Jul",
-      "k": 1.74
+      "date": "24 Jul",
+      "k": 0.52
     },
     "INTU": {
       "date": "06 Jul",
       "k": 11.33
     },
+    "IRCTC.NS": {
+      "date": "24 Jul",
+      "k": 9.34
+    },
+    "ISRG": {
+      "date": "24 Jul",
+      "k": 8.93
+    },
     "KLAC": {
-      "date": "17 Jul",
-      "k": 18.45
+      "date": "24 Jul",
+      "k": 8.39
     },
     "LRCX": {
-      "date": "17 Jul",
-      "k": 15.32
+      "date": "24 Jul",
+      "k": 3.38
     },
     "LT.NS": {
-      "date": "17 Jul",
-      "k": 19.2
+      "date": "24 Jul",
+      "k": 0.0
     },
     "MAR": {
       "date": "17 Jul",
       "k": 2.33
     },
     "MCHP": {
-      "date": "17 Jul",
-      "k": 9.78
+      "date": "24 Jul",
+      "k": 4.48
     },
     "MRVL": {
       "date": "17 Jul",
       "k": 0.0
     },
     "MU": {
-      "date": "17 Jul",
-      "k": 18.13
+      "date": "24 Jul",
+      "k": 10.63
     },
     "MUTHOOTFIN.NS": {
       "date": "06 Jul",
       "k": 10.6
+    },
+    "NXPI": {
+      "date": "24 Jul",
+      "k": 16.0
     },
     "ODFL": {
       "date": "06 Jul",
       "k": 3.33
     },
     "ON": {
-      "date": "17 Jul",
-      "k": 3.55
+      "date": "24 Jul",
+      "k": 3.43
+    },
+    "ORLY": {
+      "date": "24 Jul",
+      "k": 12.66
     },
     "PEP": {
-      "date": "10 Jul",
-      "k": 9.16
+      "date": "24 Jul",
+      "k": 0.0
     },
     "PFC.NS": {
       "date": "17 Jul",
       "k": 1.63
+    },
+    "POLICYBZR.NS": {
+      "date": "24 Jul",
+      "k": 13.72
     },
     "POLKADOT": {
       "date": "06 Jul",
@@ -145,28 +185,32 @@
       "k": 18.54
     },
     "SJVN.NS": {
-      "date": "17 Jul",
-      "k": 16.92
+      "date": "24 Jul",
+      "k": 0.0
     },
     "SMCI": {
       "date": "17 Jul",
       "k": 18.17
     },
+    "SNPS": {
+      "date": "24 Jul",
+      "k": 11.78
+    },
     "TATACONSUM.NS": {
-      "date": "17 Jul",
-      "k": 17.52
+      "date": "24 Jul",
+      "k": 2.98
     },
     "TATAPOWER.NS": {
       "date": "10 Jul",
       "k": 2.9
     },
     "TATASTEEL.NS": {
-      "date": "06 Jul",
-      "k": 3.63
+      "date": "24 Jul",
+      "k": 3.49
     },
     "TXN": {
-      "date": "17 Jul",
-      "k": 19.65
+      "date": "24 Jul",
+      "k": 8.31
     },
     "VEDL.NS": {
       "date": "17 Jul",
