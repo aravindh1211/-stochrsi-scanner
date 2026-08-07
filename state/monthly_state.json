@@ -1,4 +1,181 @@
 {
-  "hits": {},
+  "hits": {
+    "ADANIGREEN.NS": {
+      "date": "07 Aug",
+      "k": 0.0
+    },
+    "ADANIPORTS.NS": {
+      "date": "07 Aug",
+      "k": 0.0
+    },
+    "ADANIPOWER.NS": {
+      "date": "07 Aug",
+      "k": 0.0
+    },
+    "AMAT": {
+      "date": "07 Aug",
+      "k": 5.36
+    },
+    "AMD": {
+      "date": "07 Aug",
+      "k": 4.2
+    },
+    "ARM": {
+      "date": "07 Aug",
+      "k": 5.03
+    },
+    "ASML": {
+      "date": "07 Aug",
+      "k": 7.76
+    },
+    "AXISBANK.NS": {
+      "date": "07 Aug",
+      "k": 3.16
+    },
+    "BHEL.NS": {
+      "date": "07 Aug",
+      "k": 15.03
+    },
+    "BIIB": {
+      "date": "07 Aug",
+      "k": 9.36
+    },
+    "CDNS": {
+      "date": "07 Aug",
+      "k": 13.82
+    },
+    "COALINDIA.NS": {
+      "date": "07 Aug",
+      "k": 0.88
+    },
+    "CSCO": {
+      "date": "07 Aug",
+      "k": 14.21
+    },
+    "DABUR.NS": {
+      "date": "07 Aug",
+      "k": 12.45
+    },
+    "DMART.NS": {
+      "date": "07 Aug",
+      "k": 3.34
+    },
+    "DRREDDY.NS": {
+      "date": "07 Aug",
+      "k": 4.42
+    },
+    "ENPH": {
+      "date": "07 Aug",
+      "k": 6.0
+    },
+    "FSLR": {
+      "date": "07 Aug",
+      "k": 17.39
+    },
+    "GFS": {
+      "date": "07 Aug",
+      "k": 1.32
+    },
+    "HINDUNILVR.NS": {
+      "date": "07 Aug",
+      "k": 14.69
+    },
+    "ICICIGI.NS": {
+      "date": "07 Aug",
+      "k": 17.51
+    },
+    "INTC": {
+      "date": "07 Aug",
+      "k": 3.36
+    },
+    "KDP": {
+      "date": "07 Aug",
+      "k": 11.2
+    },
+    "KLAC": {
+      "date": "07 Aug",
+      "k": 4.71
+    },
+    "LRCX": {
+      "date": "07 Aug",
+      "k": 4.1
+    },
+    "MAR": {
+      "date": "07 Aug",
+      "k": 9.18
+    },
+    "MCHP": {
+      "date": "07 Aug",
+      "k": 8.88
+    },
+    "MRNA": {
+      "date": "07 Aug",
+      "k": 3.32
+    },
+    "MRVL": {
+      "date": "07 Aug",
+      "k": 5.09
+    },
+    "MU": {
+      "date": "07 Aug",
+      "k": 5.83
+    },
+    "MUTHOOTFIN.NS": {
+      "date": "07 Aug",
+      "k": 14.33
+    },
+    "NXPI": {
+      "date": "07 Aug",
+      "k": 3.57
+    },
+    "ODFL": {
+      "date": "07 Aug",
+      "k": 14.14
+    },
+    "ON": {
+      "date": "07 Aug",
+      "k": 0.0
+    },
+    "PEP": {
+      "date": "07 Aug",
+      "k": 16.34
+    },
+    "POWERGRID.NS": {
+      "date": "07 Aug",
+      "k": 6.87
+    },
+    "QCOM": {
+      "date": "07 Aug",
+      "k": 4.68
+    },
+    "SJVN.NS": {
+      "date": "07 Aug",
+      "k": 8.17
+    },
+    "SNPS": {
+      "date": "07 Aug",
+      "k": 16.39
+    },
+    "TATACONSUM.NS": {
+      "date": "07 Aug",
+      "k": 0.0
+    },
+    "TATAPOWER.NS": {
+      "date": "07 Aug",
+      "k": 7.82
+    },
+    "TATASTEEL.NS": {
+      "date": "07 Aug",
+      "k": 15.18
+    },
+    "TTD": {
+      "date": "07 Aug",
+      "k": 15.94
+    },
+    "TXN": {
+      "date": "07 Aug",
+      "k": 2.73
+    }
+  },
   "month": "2026-08"
 }
