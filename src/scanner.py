@@ -1,7 +1,14 @@
 """
-StochRSI Scanner — GitHub Actions Edition (v5)
+StochRSI Scanner — GitHub Actions Edition (v6)
 Timeframe : Weekly (1wk candles) for everything
 Schedule  : Every Friday 8:00 PM IST (14:30 UTC) + any manual run
+
+TRIGGER (v6): an instrument fires when its weekly Stoch RSI K line was
+BELOW STOCH_RSI_THRESHOLD (default 20) on the prior closed weekly bar AND
+is HIGHER on the current bar — i.e. it's turning up out of an oversold
+weekly reading, not merely sitting under the threshold. This fires as
+soon as the line starts curling up while still under the threshold
+(early reversal), not only on the exact bar it crosses above it.
 
 Two tracks, both computed on the WEEKLY timeframe:
 
@@ -14,27 +21,28 @@ Two tracks, both computed on the WEEKLY timeframe:
      - Every other NSE / Nasdaq / crypto asset that used to be
        scanned every week is now only *checked* every week, with
        hits accumulated in a small state file. Once a month — on
-       the last Friday — anything that dipped under the threshold
-       at any point in that month is summarized in a single message.
+       the last Friday — anything that turned up from below the
+       threshold at any point in that month is summarized in a
+       single message.
 
 Replicates Pine Script:
     rsi1 = rsi(src, lengthRSI)
     k    = sma(stoch(rsi1, rsi1, rsi1, lengthStoch), smoothK)
 
 Data sources:
-  yfinance   — equities + indices (interval='1wk', period='2y')
-  CoinGecko  — crypto (days=365 → auto weekly granularity)
+  yfinance   — equities + indices + crypto (interval='1wk', period='2y')
+              Crypto tickers use the Yahoo Finance "-USD" suffix format,
+              e.g. BTC-USD, ETH-USD — same source as everything else, so
+              no separate rate limit or API to babysit.
 """
 
 import os
 import json
-import time
 import logging
 import requests
 import pandas as pd
 import numpy as np
 import yfinance as yf
-from pycoingecko import CoinGeckoAPI
 from datetime import datetime, timedelta
 
 # ── Logging ────────────────────────────────────────────────────────────────────
@@ -197,17 +205,17 @@ NASDAQ_100_ALL = [
     "INTC",  "RIVN",  "LCID",
 ]
 
-# ── Crypto (CoinGecko IDs) — full universe ─────────────────────────────────────
-CRYPTO_IDS_ALL = [
-    "bitcoin",    "ethereum",    "binancecoin",  "solana",
-    "ripple",     "cardano",     "dogecoin",     "avalanche-2",
-    "chainlink",  "polkadot",
+# ── Crypto (Yahoo Finance "-USD" tickers) — full universe ──────────────────────
+CRYPTO_TICKERS_ALL = [
+    "BTC-USD",   "ETH-USD",   "BNB-USD",   "SOL-USD",
+    "XRP-USD",   "ADA-USD",   "DOGE-USD",  "AVAX-USD",
+    "LINK-USD",  "DOT-USD",
 ]
 
 # ── Monthly-only universe = full universe minus what's already in holdings ────
 MONTHLY_NSE_STOCKS    = [t for t in NSE_STOCKS_ALL if t not in HOLDINGS_NSE_STOCKS]
 MONTHLY_NASDAQ_STOCKS = [t for t in NASDAQ_100_ALL if t not in HOLDINGS_US_STOCKS]
-MONTHLY_CRYPTO_IDS    = [c for c in CRYPTO_IDS_ALL if c not in HOLDINGS_CRYPTO]
+MONTHLY_CRYPTO_TICKERS = [c for c in CRYPTO_TICKERS_ALL if c not in HOLDINGS_CRYPTO]
 
 # ── Display Labels ─────────────────────────────────────────────────────────────
 INDEX_LABELS = {
@@ -343,14 +351,45 @@ STOCK_LABELS = {
     "IYH": "iShares US Healthcare ETF",        "V": "Visa Inc",
     "ABBV": "AbbVie Inc",                      "BRK-B": "Berkshire Hathaway (Class B)",
     "ACN": "Accenture PLC",                    "JNJ": "Johnson & Johnson",
+    "VEA": "Vanguard FTSE Developed Markets ETF",
+
+    # ── Added with the Aug 2026 holdings expansion ──────────────────────────
+    "JPM": "JPMorgan Chase",                   "LLY": "Eli Lilly",
+    "ETN": "Eaton Corporation",                "GE": "GE Aerospace",
+    "PG": "Procter & Gamble",                  "COP": "ConocoPhillips",
+    "XOM": "Exxon Mobil",                      "LIN": "Linde plc",
+    "ECL": "Ecolab",                           "NEE": "NextEra Energy",
+    "PLD": "Prologis",                         "EQIX": "Equinix",
+    "TSM": "Taiwan Semiconductor Manufacturing","NOW": "ServiceNow",
+    "CRM": "Salesforce",                       "RTX": "RTX Corporation",
+    "LMT": "Lockheed Martin",                  "GD": "General Dynamics",
+    "CMG": "Chipotle Mexican Grill",           "HLT": "Hilton Worldwide",
+    "BLK": "BlackRock",                        "CME": "CME Group",
+    "UNP": "Union Pacific",                    "CP": "Canadian Pacific Kansas City",
+    "HD": "Home Depot",                        "LOW": "Lowe's Companies",
+    "ANET": "Arista Networks",
+
+    "HDFCAMC.NS": "HDFC Asset Management",     "BSE.NS": "BSE Ltd",
+    "INDUSTOWER.NS": "Indus Towers",           "UNOMINDA.NS": "Uno Minda",
+    "MAXHEALTH.NS": "Max Healthcare Institute","LALPATHLAB.NS": "Dr Lal PathLabs",
+    "METROPOLIS.NS": "Metropolis Healthcare",  "VBL.NS": "Varun Beverages",
+    "POLYCAB.NS": "Polycab India",             "KNRCON.NS": "KNR Constructions",
+    "SHREECEM.NS": "Shree Cement",             "JSWENERGY.NS": "JSW Energy",
+    "SRF.NS": "SRF Ltd",                       "PIIND.NS": "PI Industries",
+    "INDHOTEL.NS": "Indian Hotels Company",    "INDIGO.NS": "InterGlobe Aviation (IndiGo)",
+    "CONCOR.NS": "Container Corp of India",    "TCI.NS": "Transport Corp of India",
+    "PAGEIND.NS": "Page Industries",           "KPRMILL.NS": "KPR Mill",
+    "COROMANDEL.NS": "Coromandel International","NAUKRI.NS": "Info Edge (Naukri)",
+    "ETERNAL.NS": "Eternal (formerly Zomato)", "SUNTV.NS": "Sun TV Network",
+    "PVRINOX.NS": "PVR INOX",
 }
 
 CRYPTO_LABELS = {
-    "BITCOIN": "Bitcoin (BTC)",       "ETHEREUM": "Ethereum (ETH)",
-    "BINANCECOIN": "BNB (BNB)",       "SOLANA": "Solana (SOL)",
-    "RIPPLE": "XRP (XRP)",            "CARDANO": "Cardano (ADA)",
-    "DOGECOIN": "Dogecoin (DOGE)",    "AVALANCHE": "Avalanche (AVAX)",
-    "CHAINLINK": "Chainlink (LINK)",  "POLKADOT": "Polkadot (DOT)",
+    "BTC-USD": "Bitcoin (BTC)",       "ETH-USD": "Ethereum (ETH)",
+    "BNB-USD": "BNB (BNB)",           "SOL-USD": "Solana (SOL)",
+    "XRP-USD": "XRP (Ripple)",        "ADA-USD": "Cardano (ADA)",
+    "DOGE-USD": "Dogecoin (DOGE)",    "AVAX-USD": "Avalanche (AVAX)",
+    "LINK-USD": "Chainlink (LINK)",   "DOT-USD": "Polkadot (DOT)",
 }
 
 
@@ -381,14 +420,14 @@ def calc_rsi(close: pd.Series, length: int = 14) -> pd.Series:
     return pd.Series(rsi, index=close.index)
 
 
-def calc_stoch_rsi_k(
+def calc_stoch_rsi_k_series(
     close:        pd.Series,
     rsi_length:   int = 14,
     stoch_length: int = 14,
     smooth_k:     int = 3,
-) -> float | None:
+) -> pd.Series | None:
     """
-    Returns latest Stoch RSI K (0–100) or None if insufficient bars.
+    Returns the full Stoch RSI K series (0–100), or None if insufficient bars.
     Pine Script: k = sma(stoch(rsi(src,14), rsi(src,14), rsi(src,14), 14), 3)
     Minimum bars needed: 14 + 14 + 3 + 5 = 36 weekly candles (~9 months).
     With period='2y' (~104 weekly bars) we have comfortable headroom.
@@ -403,7 +442,42 @@ def calc_stoch_rsi_k(
     k_series  = stoch_raw.rolling(smooth_k).mean().dropna()
     if len(k_series) == 0:
         return None
+    return k_series
+
+
+def calc_stoch_rsi_k(
+    close:        pd.Series,
+    rsi_length:   int = 14,
+    stoch_length: int = 14,
+    smooth_k:     int = 3,
+) -> float | None:
+    """Returns latest Stoch RSI K only (kept for backwards compatibility)."""
+    k_series = calc_stoch_rsi_k_series(close, rsi_length, stoch_length, smooth_k)
+    if k_series is None:
+        return None
     return round(float(k_series.values[-1]), 2)
+
+
+def check_cross_up_from_below(k_series: pd.Series, threshold: float) -> tuple | None:
+    """
+    Trigger condition: the K line was BELOW `threshold` on the prior closed
+    weekly bar and is now RISING on the current bar (curr_k > prev_k) — i.e.
+    an instrument turning up out of an oversold weekly Stoch RSI reading.
+
+    This intentionally fires as soon as the line starts turning up while
+    still under the threshold (early reversal), not only on the exact bar
+    it crosses above the threshold — so a name recovering from K=4 to K=9
+    triggers just as much as one going from K=18 to K=23.
+
+    Returns (curr_k, prev_k) if triggered, else None.
+    """
+    if k_series is None or len(k_series) < 2:
+        return None
+    curr_k = round(float(k_series.values[-1]), 2)
+    prev_k = round(float(k_series.values[-2]), 2)
+    if prev_k < threshold and curr_k > prev_k:
+        return (curr_k, prev_k)
+    return None
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -413,7 +487,9 @@ def calc_stoch_rsi_k(
 def fetch_yfinance(tickers: list, label: str) -> dict:
     """
     Fetch WEEKLY OHLCV via Ticker.history(interval='1wk', period='2y').
-    Returns {ticker: K_value}.
+    Returns {ticker: {"k": curr_K, "triggered": bool, "prev_k": prev_K}}.
+    Trigger = prior weekly bar's K was below STOCH_RSI_THRESHOLD and the
+    current bar's K is higher than the prior bar's (turning up).
     """
     results = {}
     log.info(f"── {label}: {len(tickers)} tickers  [Weekly / 2y]")
@@ -430,50 +506,36 @@ def fetch_yfinance(tickers: list, label: str) -> dict:
             if len(df) < 36:
                 log.warning(f"  ⚠ {ticker}: only {len(df)} weekly bars (need 36+)")
                 continue
-            close = df["Close"].squeeze().dropna()
-            k     = calc_stoch_rsi_k(close)
-            if k is None:
+            close    = df["Close"].squeeze().dropna()
+            k_series = calc_stoch_rsi_k_series(close)
+            if k_series is None:
                 log.warning(f"  ⚠ {ticker}: K computation failed")
                 continue
-            results[ticker] = k
-            if k <= STOCH_RSI_THRESHOLD:
-                log.info(f"  🔔 {ticker}: K = {k}  ← TRIGGERED")
+            curr_k = round(float(k_series.values[-1]), 2)
+            cross  = check_cross_up_from_below(k_series, STOCH_RSI_THRESHOLD)
+            results[ticker] = {
+                "k": curr_k,
+                "prev_k": round(float(k_series.values[-2]), 2) if len(k_series) >= 2 else None,
+                "triggered": cross is not None,
+            }
+            if cross is not None:
+                log.info(f"  🔔 {ticker}: K {cross[1]} → {cross[0]}  ← TRIGGERED (up from below {STOCH_RSI_THRESHOLD})")
         except Exception as e:
             log.error(f"  ✗ {ticker}: {e}")
     log.info(f"  ✅ {label} done — {len(results)}/{len(tickers)} ok")
     return results
 
 
-def fetch_crypto(crypto_ids: list, label: str = "Crypto") -> dict:
+def fetch_crypto(crypto_tickers: list, label: str = "Crypto") -> dict:
     """
-    CoinGecko: days=365 auto-selects weekly OHLC granularity.
-    Returns {SYMBOL: K_value}.
+    Crypto fetched via yfinance using the "-USD" ticker suffix (e.g.
+    BTC-USD, ETH-USD) — same source, same weekly bars, same cross-up-
+    from-below-threshold trigger as everything else in fetch_yfinance().
+
+    Previously used CoinGecko, which was silently failing/rate-limiting
+    on GitHub Actions runners and causing crypto to never trigger.
     """
-    cg      = CoinGeckoAPI()
-    results = {}
-    log.info(f"── {label}: {len(crypto_ids)} coins  [Weekly via CoinGecko 365d]")
-    for coin_id in crypto_ids:
-        try:
-            time.sleep(1.2)   # free tier: max 30 req/min
-            ohlc = cg.get_coin_ohlc_by_id(id=coin_id, vs_currency="usd", days=365)
-            if not ohlc or len(ohlc) < 36:
-                log.warning(f"  ⚠ {coin_id}: only {len(ohlc) if ohlc else 0} bars")
-                continue
-            df    = pd.DataFrame(ohlc, columns=["ts","open","high","low","close"])
-            df["ts"] = pd.to_datetime(df["ts"], unit="ms")
-            close = df.set_index("ts").sort_index()["close"].dropna()
-            k     = calc_stoch_rsi_k(close)
-            if k is None:
-                log.warning(f"  ⚠ {coin_id}: K computation failed")
-                continue
-            sym          = coin_id.upper().replace("-2","").replace("-","")
-            results[sym] = k
-            if k <= STOCH_RSI_THRESHOLD:
-                log.info(f"  🔔 {sym}: K = {k}  ← TRIGGERED")
-        except Exception as e:
-            log.error(f"  ✗ {coin_id}: {e}")
-    log.info(f"  ✅ {label} done — {len(results)}/{len(crypto_ids)} ok")
-    return results
+    return fetch_yfinance(crypto_tickers, label)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -534,7 +596,10 @@ def append_weekly_log(today: datetime, triggered: dict, total_scanned: int) -> N
     entries.append({
         "date": today.strftime("%Y-%m-%d"),
         "total_scanned": total_scanned,
-        "triggered": {sym: round(k, 2) for sym, k in triggered.items()},
+        "triggered": {
+            sym: {"k": info["k"], "prev_k": info["prev_k"]}
+            for sym, info in triggered.items()
+        },
     })
 
     with open(WEEKLY_LOG_FILE, "w") as f:
@@ -575,6 +640,11 @@ def get_label(sym: str) -> str:
 
 
 def build_message(triggered: dict, total_scanned: int, run_type: str) -> str:
+    """
+    `triggered` maps sym -> {"k": curr_k, "prev_k": prev_k, "triggered": True}
+    for instruments whose weekly K was below STOCH_RSI_THRESHOLD last bar and
+    is rising this bar.
+    """
     now = datetime.utcnow().strftime("%d %b %Y")
 
     sections = {
@@ -584,22 +654,22 @@ def build_message(triggered: dict, total_scanned: int, run_type: str) -> str:
         "💼 Portfolio Holdings": {},
     }
 
-    for sym, k in triggered.items():
+    for sym, info in triggered.items():
         if sym in set(INDIAN_INDICES):
-            sections["🇮🇳 Indian Indices"][sym] = k
+            sections["🇮🇳 Indian Indices"][sym] = info
         elif sym in set(WORLD_INDICES):
-            sections["🌍 World Indices"][sym] = k
+            sections["🌍 World Indices"][sym] = info
         elif sym in set(US_INDICES):
-            sections["🇺🇸 US Indices"][sym] = k
+            sections["🇺🇸 US Indices"][sym] = info
         else:
             # everything else in this run is a portfolio holding
-            sections["💼 Portfolio Holdings"][sym] = k
+            sections["💼 Portfolio Holdings"][sym] = info
 
     trigger_icon = "🔔 Weekly" if run_type == "scheduled" else "🔍 Manual"
     lines = [
         f"📊 <b>StochRSI Weekly Scanner</b>  |  {now} (UTC)",
-        f"{trigger_icon}  |  K ≤ <b>{int(STOCH_RSI_THRESHOLD)}</b>  "
-        f"|  Scanned: <b>{total_scanned}</b> instruments",
+        f"{trigger_icon}  |  Trigger: K turning up from below "
+        f"<b>{int(STOCH_RSI_THRESHOLD)}</b>  |  Scanned: <b>{total_scanned}</b> instruments",
         "",
     ]
 
@@ -609,20 +679,23 @@ def build_message(triggered: dict, total_scanned: int, run_type: str) -> str:
             continue
         any_hit = True
         lines.append(f"<b>{section}</b>")
-        for sym, k in sorted(items.items(), key=lambda x: x[1]):
+        for sym, info in sorted(items.items(), key=lambda x: x[1]["k"]):
+            k, prev_k = info["k"], info["prev_k"]
             icon = "🟢" if k <= 5 else "🟡"
-            lines.append(f"  {icon} {get_label(sym)}  →  K = <b>{k}</b>")
+            lines.append(
+                f"  {icon} {get_label(sym)}  →  K:  {prev_k} → <b>{k}</b>  ↑"
+            )
         lines.append("")
 
     if not any_hit:
         lines.append("✅ <b>No triggers this week.</b>")
-        lines.append("All instruments above threshold — no oversold setups on weekly TF.")
+        lines.append("Nothing turned up from below threshold on the weekly TF.")
         lines.append("")
 
     lines += [
         "─────────────────────────",
-        "🟢 K ≤ 5  →  Deeply oversold (weekly)",
-        f"🟡 K 5–{int(STOCH_RSI_THRESHOLD)}  →  Oversold zone (weekly)",
+        "🟢 Current K ≤ 5  →  Turning up from deeply oversold",
+        f"🟡 Current K 5–{int(STOCH_RSI_THRESHOLD)}+  →  Turning up from oversold zone",
         "💡 <i>Weekly signals = higher conviction. Confirm before entry.</i>",
     ]
     return "\n".join(lines)
@@ -632,20 +705,20 @@ def build_monthly_message(hits: dict, month_key: str, total_universe: int) -> st
     month_label = datetime.strptime(month_key, "%Y-%m").strftime("%B %Y")
     lines = [
         f"🗓️ <b>Monthly Watchlist Scan — {month_label}</b>",
-        f"K ≤ <b>{int(STOCH_RSI_THRESHOLD)}</b> at any point this month  "
-        f"|  Universe: <b>{total_universe}</b> non-portfolio instruments",
+        f"Trigger: K turning up from below <b>{int(STOCH_RSI_THRESHOLD)}</b> at any "
+        f"point this month  |  Universe: <b>{total_universe}</b> non-portfolio instruments",
         "",
     ]
 
     if not hits:
-        lines.append("✅ <b>No oversold dips this month.</b>")
-        lines.append("Nothing outside your portfolio crossed the threshold in any weekly check.")
+        lines.append("✅ <b>No upturns this month.</b>")
+        lines.append("Nothing outside your portfolio turned up from below threshold in any weekly check.")
     else:
-        lines.append(f"<b>🔔 {len(hits)} instrument(s) dipped under K = {int(STOCH_RSI_THRESHOLD)} this month</b>")
+        lines.append(f"<b>🔔 {len(hits)} instrument(s) turned up from below K = {int(STOCH_RSI_THRESHOLD)} this month</b>")
         for sym, info in sorted(hits.items(), key=lambda x: x[1]["k"]):
             icon = "🟢" if info["k"] <= 5 else "🟡"
             lines.append(
-                f"  {icon} {get_label(sym)}  →  lowest K = <b>{info['k']}</b>  "
+                f"  {icon} {get_label(sym)}  →  K: {info['prev_k']} → <b>{info['k']}</b>  "
                 f"(seen {info['date']})"
             )
 
@@ -691,7 +764,7 @@ def main():
     weekly_k.update(fetch_yfinance(HOLDINGS_US_STOCKS,  "Portfolio — US Stocks"))
     weekly_k.update(fetch_crypto(HOLDINGS_CRYPTO, "Portfolio — Crypto"))
 
-    weekly_triggered = {s: k for s, k in weekly_k.items() if k <= STOCH_RSI_THRESHOLD}
+    weekly_triggered = {s: info for s, info in weekly_k.items() if info["triggered"]}
 
     log.info("=" * 60)
     log.info(f"  Weekly scanned   : {len(weekly_k)}")
@@ -710,20 +783,20 @@ def main():
     state = load_state(month_key)
 
     monthly_total = (len(MONTHLY_NSE_STOCKS) + len(MONTHLY_NASDAQ_STOCKS)
-                      + len(MONTHLY_CRYPTO_IDS))
+                      + len(MONTHLY_CRYPTO_TICKERS))
     log.info(f"  Monthly watchlist universe: {monthly_total} instruments (checked weekly)")
 
     monthly_k: dict = {}
     monthly_k.update(fetch_yfinance(MONTHLY_NSE_STOCKS, "Monthly Watch — NSE Stocks"))
     monthly_k.update(fetch_yfinance(MONTHLY_NASDAQ_STOCKS, "Monthly Watch — Nasdaq Stocks"))
-    monthly_k.update(fetch_crypto(MONTHLY_CRYPTO_IDS, "Monthly Watch — Crypto"))
+    monthly_k.update(fetch_crypto(MONTHLY_CRYPTO_TICKERS, "Monthly Watch — Crypto"))
 
     today_str = today.strftime("%d %b")
-    for sym, k in monthly_k.items():
-        if k <= STOCH_RSI_THRESHOLD:
+    for sym, info in monthly_k.items():
+        if info["triggered"]:
             existing = state["hits"].get(sym)
-            if existing is None or k < existing["k"]:
-                state["hits"][sym] = {"k": k, "date": today_str}
+            if existing is None or info["k"] < existing["k"]:
+                state["hits"][sym] = {"k": info["k"], "prev_k": info["prev_k"], "date": today_str}
 
     save_state(state)
     log.info(f"  Monthly state updated — {len(state['hits'])} cumulative hit(s) so far this month")
