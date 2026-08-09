@@ -1,7 +1,10 @@
-# 📊 StochRSI Daily Scanner — GitHub Actions
+# 📊 StochRSI Weekly Scanner — GitHub Actions
 
-Scans **NSE stocks, US stocks, Global Indices, and Crypto** every morning at **9:00 AM IST**.
-Sends a **Telegram alert** listing all instruments where Stoch RSI K ≤ 10 on the Daily timeframe.
+Scans **NSE stocks, US stocks, Global Indices, and Crypto** every Friday at **8:00 PM IST**
+(after both NSE and US markets have had a chance to close out the week).
+Sends a **Telegram alert** listing every instrument whose **weekly Stoch RSI K line was
+below threshold on the prior closed bar and is now turning up** — not merely sitting
+under the threshold, but actively curling upward out of an oversold reading.
 Runs 100% free on GitHub Actions.
 
 ---
@@ -15,7 +18,21 @@ Replicates your Pine Script logic exactly:
 | `rsi(src, 14)` | Wilder's RMA — `rma(gain/loss, 14)` |
 | `stoch(rsi1, rsi1, rsi1, 14)` | Rolling min/max over RSI values |
 | `sma(stoch, 3)` | 3-period rolling mean = K line |
-| Alert when K ≤ 10 | Configurable via `STOCH_RSI_THRESHOLD` |
+| Alert when K turns up from oversold | Configurable via `STOCH_RSI_THRESHOLD` (default 20) |
+
+**Trigger definition:** for each instrument, take the current closed weekly bar's K
+(`curr_k`) and the prior closed weekly bar's K (`prev_k`). The instrument fires when:
+
+```
+prev_k < STOCH_RSI_THRESHOLD   AND   curr_k > prev_k
+```
+
+This intentionally fires as soon as K starts turning up while still under the
+threshold — e.g. K going from 4 → 9 triggers just as much as K going from 18 → 23 —
+rather than waiting only for the exact bar where it crosses above the threshold.
+This means an instrument can trigger on consecutive weeks (once for each new week
+it keeps rising while under threshold, or right as it crosses above it) — that's
+by design, it reflects momentum building week over week.
 
 ---
 
@@ -134,49 +151,57 @@ No action needed — once the file is in your repo, GitHub runs it automatically
 ## 📬 Sample Telegram Message
 
 ```
-📊 StochRSI Daily Scanner  |  16 Jun 2026 (UTC)
-🔔 Stoch RSI K ≤ 10  |  Scanned: 63 instruments
+📊 StochRSI Weekly Scanner  |  16 Jun 2026 (UTC)
+🔔 Weekly  |  Trigger: K turning up from below 20  |  Scanned: 141 instruments
 
-🇮🇳 NSE Stocks
-  🟢 WIPRO  →  K = 3.81
-  🟡 SUNPHARMA  →  K = 8.42
+🇮🇳 Indian Indices
+  🟢 Nifty PSU Bank (^CNXPSUBANK)  →  K:  8.1 → 14.3  ↑
 
-🇺🇸 US Stocks
-  🟢 INTC  →  K = 5.14
+💼 Portfolio Holdings
+  🟢 Uno Minda (UNOMINDA.NS)  →  K:  3.8 → 9.1  ↑
+  🟡 Booking Holdings (BKNG)  →  K:  17.2 → 21.6  ↑
 
 🪙 Crypto
-  🟢 ETHEREUM  →  K = 2.77
-  🟡 SOLANA  →  K = 9.03
+  🟡 Ethereum (ETH)  →  K:  12.5 → 18.9  ↑
 
 ─────────────────────────
-🟢 K ≤ 5  →  Deeply oversold
-🟡 K 5–10  →  Oversold zone
-💡 Use as an accumulation signal, not a standalone entry.
+🟢 Current K ≤ 5  →  Turning up from deeply oversold
+🟡 Current K 5–20+  →  Turning up from oversold zone
+💡 Weekly signals = higher conviction. Confirm before entry.
 ```
 
 ---
 
 ## ✏️ Customising Your Watchlist
 
-Open `src/scanner.py` and edit the lists at the top:
+The portfolio holdings tracked every week (indices are separate, hardcoded in
+`src/scanner.py` since they rarely change) live in **`holdings.json`** at the repo
+root — not hardcoded in the script. Two ways to edit it:
 
-```python
-NSE_STOCKS = [
-    "RELIANCE.NS", "TCS.NS", ...   # Any NSE ticker — must end with .NS
-]
+**A — Actions tab (no code editor needed):**
+Go to **Actions → Update Holdings → Run workflow**, paste comma-separated tickers
+into the category you want to change, and run. Prefix a ticker with `-` to remove
+it (e.g. `-IRFC.NS`). Leave a field blank to leave it untouched.
 
-US_STOCKS = [
-    "AAPL", "NVDA", ...            # US ticker as-is
-]
-
-GLOBAL_INDICES = [
-    "^NSEI", "^GSPC", ...          # Yahoo Finance index codes
-]
-
-CRYPTO_IDS = [
-    "bitcoin", "solana", ...       # CoinGecko IDs (find at coingecko.com)
-]
+**B — Edit `holdings.json` directly:**
+```json
+{
+  "nse_stocks": ["RELIANCE.NS", "TCS.NS", ...],
+  "us_stocks":  ["AAPL", "NVDA", ...],
+  "crypto":     ["BTC-USD", "ETH-USD", ...]
+}
 ```
+NSE tickers must end in `.NS`, US tickers are used as-is, crypto tickers use the
+**Yahoo Finance "-USD" suffix** (e.g. `BTC-USD`, `SOL-USD`) — same source as
+everything else, no separate API or rate limit to worry about.
+
+The wider Nifty 100 / Nasdaq 100 / top-10-crypto universe used by the *monthly*
+non-portfolio track is still hardcoded in `src/scanner.py` (`NSE_STOCKS_ALL`,
+`NASDAQ_100_ALL`, `CRYPTO_TICKERS_ALL`) — anything you add to your holdings is
+automatically excluded from that universe so it isn't double-counted.
+
+Indices tracked every week are also in `src/scanner.py` (`INDIAN_INDICES`,
+`WORLD_INDICES`, `US_INDICES`) since they change far less often than holdings.
 
 **Useful index codes:**
 | Index | Code |
@@ -188,6 +213,26 @@ CRYPTO_IDS = [
 | NASDAQ | `^IXIC` |
 | Gold Futures | `GC=F` |
 | Crude Oil | `CL=F` |
+
+---
+
+## 🕰️ Retrospective Backfill
+
+If you're only starting the scanner now, you can still see what WOULD have
+triggered on each of the last few Fridays — a one-off lookback across all
+your indices, holdings, and crypto.
+
+1. Go to **Actions → One-Off Retrospective Backfill → Run workflow**
+2. Enter how many past weeks to check (default `4`)
+3. Run it — you'll get **one consolidated Telegram message**, grouped by
+   week, covering every trigger that would have fired
+
+This replays the same "K was below threshold last bar, rising this bar"
+condition bar-by-bar using only the data available at each historical bar
+(no lookahead). It's read-only — it doesn't touch `state/monthly_state.json`
+or `state/weekly_log.json`, so it won't interfere with the regular weekly
+run or the monthly digest. Safe to run as many times as you like, or delete
+`.github/workflows/backfill_once.yml` afterwards if you don't need it again.
 
 ---
 
