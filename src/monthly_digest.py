@@ -98,9 +98,14 @@ def build_digest(entries: list, month_label: str) -> str:
             lines.append("  ✅ No triggers")
         else:
             any_trigger_all_month = True
-            for sym, k in sorted(triggered.items(), key=lambda x: x[1]):
+            for sym, info in sorted(triggered.items(), key=lambda x: x[1]["k"]):
+                k = info["k"] if isinstance(info, dict) else info
+                prev_k = info.get("prev_k") if isinstance(info, dict) else None
                 icon = "🟢" if k <= 5 else "🟡"
-                lines.append(f"  {icon} {get_label(sym)}  →  K = <b>{k}</b>")
+                if prev_k is not None:
+                    lines.append(f"  {icon} {get_label(sym)}  →  K: {prev_k} → <b>{k}</b>")
+                else:
+                    lines.append(f"  {icon} {get_label(sym)}  →  K = <b>{k}</b>")
         lines.append("")
 
     lines.append("─────────────────────────")
