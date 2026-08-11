@@ -1,14 +1,29 @@
 """
-StochRSI Scanner — GitHub Actions Edition (v6)
+StochRSI Scanner — GitHub Actions Edition (v7)
 Timeframe : Weekly (1wk candles) for everything
 Schedule  : Every Friday 8:00 PM IST (14:30 UTC) + any manual run
 
-TRIGGER (v6): an instrument fires when its weekly Stoch RSI K line was
-BELOW STOCH_RSI_THRESHOLD (default 20) on the prior closed weekly bar AND
-is HIGHER on the current bar — i.e. it's turning up out of an oversold
-weekly reading, not merely sitting under the threshold. This fires as
-soon as the line starts curling up while still under the threshold
-(early reversal), not only on the exact bar it crosses above it.
+TWO-LAYER SCREEN (v7), run in this order for every instrument —
+Universe → Layer 1 (Valuation) → Layer 2 (Timing):
+
+  LAYER 1 — Valuation (src/valuation.py)
+    An instrument is "cheap" when either:
+      - current trailing PE is in the bottom 30th percentile of its OWN
+        5-year trailing-PE history (reconstructed from quarterly EPS +
+        weekly price), OR
+      - PEG ratio < 1 (used for growth names where PE alone misleads,
+        or whenever 5y PE history can't be reliably reconstructed)
+    Indices and crypto have no PE and are exempt — they always pass
+    Layer 1 straight through to Layer 2.
+    If an instrument fails Layer 1, Layer 2 is skipped for it entirely.
+
+  LAYER 2 — Timing (Stoch RSI %K/%D crossover)
+    Only evaluated for instruments that passed Layer 1. Weekly Stoch
+    RSI with SLOWER settings — (21,5,5) instead of the old (14,3,3) —
+    to cut down whipsaw crossovers. Fires only on a CONFIRMED weekly
+    close: %K crosses above %D while both lines are below
+    STOCH_RSI_THRESHOLD (default 20). A mere touch under the threshold
+    with no crossover does not fire.
 
 Two tracks, both computed on the WEEKLY timeframe:
 
@@ -21,19 +36,23 @@ Two tracks, both computed on the WEEKLY timeframe:
      - Every other NSE / Nasdaq / crypto asset that used to be
        scanned every week is now only *checked* every week, with
        hits accumulated in a small state file. Once a month — on
-       the last Friday — anything that turned up from below the
-       threshold at any point in that month is summarized in a
-       single message.
+       the last Friday — anything that confirmed a cross-up (after
+       passing Layer 1) at any point in that month is summarized in
+       a single message.
 
 Replicates Pine Script:
-    rsi1 = rsi(src, lengthRSI)
-    k    = sma(stoch(rsi1, rsi1, rsi1, lengthStoch), smoothK)
+    rsi1 = rsi(src, 21)
+    k    = sma(stoch(rsi1, rsi1, rsi1, 21), 5)
+    d    = sma(k, 5)
 
 Data sources:
   yfinance   — equities + indices + crypto (interval='1wk', period='2y')
               Crypto tickers use the Yahoo Finance "-USD" suffix format,
               e.g. BTC-USD, ETH-USD — same source as everything else, so
               no separate rate limit or API to babysit.
+  yfinance   — Layer 1 valuation also pulls .info (trailingPE, PEG),
+              quarterly_income_stmt (EPS history), and 5y weekly price
+              per instrument, all from the same yfinance library.
 """
 
 import os
@@ -44,6 +63,8 @@ import pandas as pd
 import numpy as np
 import yfinance as yf
 from datetime import datetime, timedelta
+
+from valuation import get_valuation_signal, is_valuation_exempt
 
 # ── Logging ────────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -61,7 +82,13 @@ STATE_FILE          = os.environ.get("STATE_FILE", "state/monthly_state.json")
 
 # Weekly fetch settings
 YF_INTERVAL = "1wk"
-YF_PERIOD   = "2y"    # 2 years of weekly bars = ~104 candles, well above minimum 36
+YF_PERIOD   = "2y"    # 2 years of weekly bars = ~104 candles, well above minimum 57
+
+# Stoch RSI settings (v7) — slower than the old (14,3,3) to cut weekly whipsaw
+STOCH_RSI_LENGTH = int(os.environ.get("STOCH_RSI_LENGTH", "21"))
+STOCH_LENGTH     = int(os.environ.get("STOCH_LENGTH", "21"))
+SMOOTH_K         = int(os.environ.get("SMOOTH_K", "5"))
+SMOOTH_D         = int(os.environ.get("SMOOTH_D", "5"))
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -420,63 +447,88 @@ def calc_rsi(close: pd.Series, length: int = 14) -> pd.Series:
     return pd.Series(rsi, index=close.index)
 
 
-def calc_stoch_rsi_k_series(
+def calc_stoch_rsi_kd_series(
     close:        pd.Series,
-    rsi_length:   int = 14,
-    stoch_length: int = 14,
-    smooth_k:     int = 3,
-) -> pd.Series | None:
+    rsi_length:   int = 21,
+    stoch_length: int = 21,
+    smooth_k:     int = 5,
+    smooth_d:     int = 5,
+) -> tuple[pd.Series, pd.Series] | tuple[None, None]:
     """
-    Returns the full Stoch RSI K series (0–100), or None if insufficient bars.
-    Pine Script: k = sma(stoch(rsi(src,14), rsi(src,14), rsi(src,14), 14), 3)
-    Minimum bars needed: 14 + 14 + 3 + 5 = 36 weekly candles (~9 months).
-    With period='2y' (~104 weekly bars) we have comfortable headroom.
+    Returns (K series, D series), both 0–100, or (None, None) if
+    insufficient bars.
+
+    v7 defaults are the SLOWER weekly settings (21,5,5) instead of the
+    old default (14,3,3) — deliberately less twitchy, fewer whipsaw
+    crossovers on the weekly timeframe.
+
+    Pine Script equivalent:
+        rsi1 = rsi(src, 21)
+        k    = sma(stoch(rsi1, rsi1, rsi1, 21), 5)
+        d    = sma(k, 5)
+
+    Minimum bars needed: 21 + 21 + 5 + 5 + 5 = 57 weekly candles (~14mo).
+    With period='2y' (~104 weekly bars) there's comfortable headroom.
     """
-    if len(close) < rsi_length + stoch_length + smooth_k + 5:
-        return None
+    if len(close) < rsi_length + stoch_length + smooth_k + smooth_d + 5:
+        return None, None
     rsi_vals  = calc_rsi(close, rsi_length)
     hi        = rsi_vals.rolling(stoch_length).max()
     lo        = rsi_vals.rolling(stoch_length).min()
     denom     = (hi - lo).replace(0, np.nan)
     stoch_raw = ((rsi_vals - lo) / denom) * 100
     k_series  = stoch_raw.rolling(smooth_k).mean().dropna()
-    if len(k_series) == 0:
-        return None
-    return k_series
+    d_series  = k_series.rolling(smooth_d).mean().dropna()
+    if len(d_series) == 0:
+        return None, None
+    k_series = k_series.reindex(d_series.index)  # align K to D's (shorter) index
+    return k_series, d_series
 
 
-def calc_stoch_rsi_k(
-    close:        pd.Series,
-    rsi_length:   int = 14,
-    stoch_length: int = 14,
-    smooth_k:     int = 3,
-) -> float | None:
-    """Returns latest Stoch RSI K only (kept for backwards compatibility)."""
-    k_series = calc_stoch_rsi_k_series(close, rsi_length, stoch_length, smooth_k)
-    if k_series is None:
-        return None
-    return round(float(k_series.values[-1]), 2)
-
-
-def check_cross_up_from_below(k_series: pd.Series, threshold: float) -> tuple | None:
+def drop_incomplete_last_bar(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Trigger condition: the K line was BELOW `threshold` on the prior closed
-    weekly bar and is now RISING on the current bar (curr_k > prev_k) — i.e.
-    an instrument turning up out of an oversold weekly Stoch RSI reading.
-
-    This intentionally fires as soon as the line starts turning up while
-    still under the threshold (early reversal), not only on the exact bar
-    it crosses above the threshold — so a name recovering from K=4 to K=9
-    triggers just as much as one going from K=18 to K=23.
-
-    Returns (curr_k, prev_k) if triggered, else None.
+    yfinance's most recent weekly bar is often still in progress (mid-
+    week). "Confirmed on weekly close" means we must not act on that
+    bar — drop it if the week it represents hasn't finished yet.
     """
-    if k_series is None or len(k_series) < 2:
+    if df is None or df.empty:
+        return df
+    last_date = pd.Timestamp(df.index[-1])
+    if last_date.tzinfo is not None:
+        last_date = last_date.tz_localize(None)
+    now = pd.Timestamp.utcnow().tz_localize(None)
+    if (now - last_date) < pd.Timedelta(days=6):
+        return df.iloc[:-1]
+    return df
+
+
+def check_kd_bullish_crossover(
+    k_series: pd.Series,
+    d_series: pd.Series,
+    threshold: float,
+) -> dict | None:
+    """
+    Trigger condition (v7): %K crosses above %D — prev bar K <= D, this
+    bar K > D — while BOTH lines are below `threshold` on the current
+    (now-confirmed-closed) weekly bar. A mere touch under the threshold
+    with no crossover does NOT fire; K rising while still under D does
+    NOT fire either — the cross itself must happen this bar.
+
+    Returns {"k","d","prev_k","prev_d"} if triggered, else None.
+    """
+    if k_series is None or d_series is None or len(k_series) < 2 or len(d_series) < 2:
         return None
-    curr_k = round(float(k_series.values[-1]), 2)
-    prev_k = round(float(k_series.values[-2]), 2)
-    if prev_k < threshold and curr_k > prev_k:
-        return (curr_k, prev_k)
+    curr_k, prev_k = float(k_series.iloc[-1]), float(k_series.iloc[-2])
+    curr_d, prev_d = float(d_series.iloc[-1]), float(d_series.iloc[-2])
+
+    crossed_up = (prev_k <= prev_d) and (curr_k > curr_d)
+    both_below = (curr_k < threshold) and (curr_d < threshold)
+
+    if crossed_up and both_below:
+        return {
+            "k": round(curr_k, 2), "d": round(curr_d, 2),
+            "prev_k": round(prev_k, 2), "prev_d": round(prev_d, 2),
+        }
     return None
 
 
@@ -486,54 +538,83 @@ def check_cross_up_from_below(k_series: pd.Series, threshold: float) -> tuple | 
 
 def fetch_yfinance(tickers: list, label: str) -> dict:
     """
-    Fetch WEEKLY OHLCV via Ticker.history(interval='1wk', period='2y').
-    Returns {ticker: {"k": curr_K, "triggered": bool, "prev_k": prev_K}}.
-    Trigger = prior weekly bar's K was below STOCH_RSI_THRESHOLD and the
-    current bar's K is higher than the prior bar's (turning up).
+    Two-layer screen, run in order — Universe → Valuation (Layer 1) →
+    Stochastic (Layer 2):
+
+      Layer 1 — cheap check via get_valuation_signal(). Indices/crypto
+      are exempt (no PE) and always pass through. If an instrument
+      fails Layer 1 (not cheap), Layer 2 is skipped entirely for it —
+      no stochastic call, no history fetch wasted.
+
+      Layer 2 — only for instruments that passed Layer 1: weekly
+      Stoch RSI %K/%D crossover, confirmed on a CLOSED weekly bar —
+      %K crosses above %D while both are below STOCH_RSI_THRESHOLD.
+
+    Returns {ticker: {"k","d","prev_k","prev_d","triggered","cheap",
+                       "valuation_method","valuation_detail"}}.
+    Tickers that fail Layer 1 are NOT included in the return dict at
+    all (they never reach Layer 2, so there's no timing state to show).
     """
     results = {}
     log.info(f"── {label}: {len(tickers)} tickers  [Weekly / 2y]")
     for ticker in tickers:
         try:
+            # ── Layer 1: Valuation ──────────────────────────────────────
+            val = get_valuation_signal(ticker)
+            if not val["cheap"]:
+                log.info(f"  ⛔ {ticker}: Layer 1 fail — {val['detail']}")
+                continue
+
+            # ── Layer 2: Stochastic timing ──────────────────────────────
             df = yf.Ticker(ticker).history(
                 period=YF_PERIOD,
                 interval=YF_INTERVAL,
                 auto_adjust=True,
             )
             if df is None or df.empty:
-                log.warning(f"  ⚠ {ticker}: no data")
+                log.warning(f"  ⚠ {ticker}: no price data")
                 continue
-            if len(df) < 36:
-                log.warning(f"  ⚠ {ticker}: only {len(df)} weekly bars (need 36+)")
+            df = drop_incomplete_last_bar(df)
+            if len(df) < 57:
+                log.warning(f"  ⚠ {ticker}: only {len(df)} closed weekly bars (need 57+)")
                 continue
-            close    = df["Close"].squeeze().dropna()
-            k_series = calc_stoch_rsi_k_series(close)
+            close = df["Close"].squeeze().dropna()
+            k_series, d_series = calc_stoch_rsi_kd_series(
+                close, STOCH_RSI_LENGTH, STOCH_LENGTH, SMOOTH_K, SMOOTH_D,
+            )
             if k_series is None:
-                log.warning(f"  ⚠ {ticker}: K computation failed")
+                log.warning(f"  ⚠ {ticker}: K/D computation failed")
                 continue
-            curr_k = round(float(k_series.values[-1]), 2)
-            cross  = check_cross_up_from_below(k_series, STOCH_RSI_THRESHOLD)
+            cross = check_kd_bullish_crossover(k_series, d_series, STOCH_RSI_THRESHOLD)
             results[ticker] = {
-                "k": curr_k,
-                "prev_k": round(float(k_series.values[-2]), 2) if len(k_series) >= 2 else None,
+                "k": round(float(k_series.iloc[-1]), 2),
+                "d": round(float(d_series.iloc[-1]), 2),
+                "prev_k": round(float(k_series.iloc[-2]), 2) if len(k_series) >= 2 else None,
+                "prev_d": round(float(d_series.iloc[-2]), 2) if len(d_series) >= 2 else None,
                 "triggered": cross is not None,
+                "cheap": True,
+                "valuation_method": val["method"],
+                "valuation_detail": val["detail"],
             }
             if cross is not None:
-                log.info(f"  🔔 {ticker}: K {cross[1]} → {cross[0]}  ← TRIGGERED (up from below {STOCH_RSI_THRESHOLD})")
+                log.info(
+                    f"  🔔 {ticker}: K/D cross-up below {STOCH_RSI_THRESHOLD} "
+                    f"(K {cross['prev_k']}→{cross['k']}, D {cross['prev_d']}→{cross['d']})  "
+                    f"[{val['method']}: {val['detail']}]  ← TRIGGERED"
+                )
         except Exception as e:
             log.error(f"  ✗ {ticker}: {e}")
-    log.info(f"  ✅ {label} done — {len(results)}/{len(tickers)} ok")
+    log.info(f"  ✅ {label} done — {len(results)}/{len(tickers)} passed Layer 1 and were scanned")
     return results
 
 
 def fetch_crypto(crypto_tickers: list, label: str = "Crypto") -> dict:
     """
     Crypto fetched via yfinance using the "-USD" ticker suffix (e.g.
-    BTC-USD, ETH-USD) — same source, same weekly bars, same cross-up-
-    from-below-threshold trigger as everything else in fetch_yfinance().
-
-    Previously used CoinGecko, which was silently failing/rate-limiting
-    on GitHub Actions runners and causing crypto to never trigger.
+    BTC-USD, ETH-USD) — same source, same weekly bars as everything
+    else in fetch_yfinance(). Layer 1 (valuation) is a no-op for crypto
+    (is_valuation_exempt() catches the "-USD" suffix) — crypto always
+    proceeds straight to the Layer 2 stochastic check.
     """
     return fetch_yfinance(crypto_tickers, label)
 
@@ -597,7 +678,11 @@ def append_weekly_log(today: datetime, triggered: dict, total_scanned: int) -> N
         "date": today.strftime("%Y-%m-%d"),
         "total_scanned": total_scanned,
         "triggered": {
-            sym: {"k": info["k"], "prev_k": info["prev_k"]}
+            sym: {
+                "k": info["k"], "prev_k": info["prev_k"],
+                "d": info["d"], "prev_d": info["prev_d"],
+                "valuation_method": info["valuation_method"],
+            }
             for sym, info in triggered.items()
         },
     })
@@ -639,11 +724,11 @@ def get_label(sym: str) -> str:
     return sym.replace(".NS", "").replace("^", "")
 
 
-def build_message(triggered: dict, total_scanned: int, run_type: str) -> str:
+def build_message(triggered: dict, universe_total: int, layer1_passed: int, run_type: str) -> str:
     """
-    `triggered` maps sym -> {"k": curr_k, "prev_k": prev_k, "triggered": True}
-    for instruments whose weekly K was below STOCH_RSI_THRESHOLD last bar and
-    is rising this bar.
+    `triggered` maps sym -> {"k","d","prev_k","prev_d","valuation_method",
+    "valuation_detail","triggered": True} for instruments that passed
+    Layer 1 (valuation) AND fired the Layer 2 %K/%D crossover.
     """
     now = datetime.utcnow().strftime("%d %b %Y")
 
@@ -668,8 +753,10 @@ def build_message(triggered: dict, total_scanned: int, run_type: str) -> str:
     trigger_icon = "🔔 Weekly" if run_type == "scheduled" else "🔍 Manual"
     lines = [
         f"📊 <b>StochRSI Weekly Scanner</b>  |  {now} (UTC)",
-        f"{trigger_icon}  |  Trigger: K turning up from below "
-        f"<b>{int(STOCH_RSI_THRESHOLD)}</b>  |  Scanned: <b>{total_scanned}</b> instruments",
+        f"{trigger_icon}  |  %K/%D cross-up below <b>{int(STOCH_RSI_THRESHOLD)}</b>, "
+        f"confirmed on weekly close",
+        f"Universe: <b>{universe_total}</b>  |  Passed Layer 1 (valuation): "
+        f"<b>{layer1_passed}</b>  |  Layer 2 triggers: <b>{len(triggered)}</b>",
         "",
     ]
 
@@ -680,47 +767,50 @@ def build_message(triggered: dict, total_scanned: int, run_type: str) -> str:
         any_hit = True
         lines.append(f"<b>{section}</b>")
         for sym, info in sorted(items.items(), key=lambda x: x[1]["k"]):
-            k, prev_k = info["k"], info["prev_k"]
+            k, d = info["k"], info["d"]
             icon = "🟢" if k <= 5 else "🟡"
             lines.append(
-                f"  {icon} {get_label(sym)}  →  K:  {prev_k} → <b>{k}</b>  ↑"
+                f"  {icon} {get_label(sym)}  →  K: {info['prev_k']}→<b>{k}</b>  "
+                f"D: {info['prev_d']}→{d}  ↑"
             )
+            lines.append(f"       <i>{info['valuation_detail']}</i>")
         lines.append("")
 
     if not any_hit:
         lines.append("✅ <b>No triggers this week.</b>")
-        lines.append("Nothing turned up from below threshold on the weekly TF.")
+        lines.append("Nothing both passed the valuation filter AND confirmed a weekly K/D cross-up.")
         lines.append("")
 
     lines += [
         "─────────────────────────",
         "🟢 Current K ≤ 5  →  Turning up from deeply oversold",
-        f"🟡 Current K 5–{int(STOCH_RSI_THRESHOLD)}+  →  Turning up from oversold zone",
-        "💡 <i>Weekly signals = higher conviction. Confirm before entry.</i>",
+        f"🟡 Current K 5–{int(STOCH_RSI_THRESHOLD)}  →  Turning up from oversold zone",
+        "💡 <i>Layer 1 (cheap) + Layer 2 (confirmed cross) — higher conviction, still confirm before entry.</i>",
     ]
     return "\n".join(lines)
 
 
-def build_monthly_message(hits: dict, month_key: str, total_universe: int) -> str:
+def build_monthly_message(hits: dict, month_key: str, universe_total: int) -> str:
     month_label = datetime.strptime(month_key, "%Y-%m").strftime("%B %Y")
     lines = [
         f"🗓️ <b>Monthly Watchlist Scan — {month_label}</b>",
-        f"Trigger: K turning up from below <b>{int(STOCH_RSI_THRESHOLD)}</b> at any "
-        f"point this month  |  Universe: <b>{total_universe}</b> non-portfolio instruments",
+        f"%K/%D cross-up below <b>{int(STOCH_RSI_THRESHOLD)}</b> (weekly close, valuation-filtered) "
+        f"at any point this month  |  Universe: <b>{universe_total}</b> non-portfolio instruments",
         "",
     ]
 
     if not hits:
-        lines.append("✅ <b>No upturns this month.</b>")
-        lines.append("Nothing outside your portfolio turned up from below threshold in any weekly check.")
+        lines.append("✅ <b>No confirmed setups this month.</b>")
+        lines.append("Nothing outside your portfolio both passed the valuation filter and confirmed a weekly cross-up.")
     else:
-        lines.append(f"<b>🔔 {len(hits)} instrument(s) turned up from below K = {int(STOCH_RSI_THRESHOLD)} this month</b>")
+        lines.append(f"<b>🔔 {len(hits)} instrument(s) confirmed a cross-up below K/D = {int(STOCH_RSI_THRESHOLD)} this month</b>")
         for sym, info in sorted(hits.items(), key=lambda x: x[1]["k"]):
             icon = "🟢" if info["k"] <= 5 else "🟡"
             lines.append(
-                f"  {icon} {get_label(sym)}  →  K: {info['prev_k']} → <b>{info['k']}</b>  "
-                f"(seen {info['date']})"
+                f"  {icon} {get_label(sym)}  →  K: {info['prev_k']}→<b>{info['k']}</b>  "
+                f"D: {info['prev_d']}→{info['d']}  (seen {info['date']})"
             )
+            lines.append(f"       <i>{info['valuation_detail']}</i>")
 
     lines += [
         "",
@@ -743,16 +833,18 @@ def main():
         run_type = "scheduled"
 
     # ── 1) WEEKLY TRACK — indices + portfolio holdings only ───────────────────
-    weekly_total = (len(INDIAN_INDICES) + len(WORLD_INDICES) + len(US_INDICES)
-                     + len(HOLDINGS_NSE_STOCKS) + len(HOLDINGS_US_STOCKS)
-                     + len(HOLDINGS_CRYPTO))
+    weekly_universe_total = (len(INDIAN_INDICES) + len(WORLD_INDICES) + len(US_INDICES)
+                              + len(HOLDINGS_NSE_STOCKS) + len(HOLDINGS_US_STOCKS)
+                              + len(HOLDINGS_CRYPTO))
 
     log.info("=" * 60)
-    log.info("  StochRSI Scanner v5")
+    log.info("  StochRSI Scanner v7")
     log.info(f"  Run type   : {run_type.upper()}")
-    log.info(f"  Threshold  : K ≤ {STOCH_RSI_THRESHOLD}")
+    log.info(f"  Layer 1    : PE percentile ≤ {30}th pct (own 5y history) OR PEG < 1")
+    log.info(f"  Layer 2    : %K/%D cross-up below {STOCH_RSI_THRESHOLD}, confirmed on weekly close")
+    log.info(f"  Stoch RSI  : ({STOCH_RSI_LENGTH},{STOCH_LENGTH},{SMOOTH_K},{SMOOTH_D})")
     log.info(f"  Interval   : {YF_INTERVAL}  |  Period: {YF_PERIOD}")
-    log.info(f"  Weekly instruments: {weekly_total} (indices + holdings)")
+    log.info(f"  Weekly universe: {weekly_universe_total} (indices + holdings)")
     log.info(f"  yfinance   : {yf.__version__}")
     log.info("=" * 60)
 
@@ -764,19 +856,26 @@ def main():
     weekly_k.update(fetch_yfinance(HOLDINGS_US_STOCKS,  "Portfolio — US Stocks"))
     weekly_k.update(fetch_crypto(HOLDINGS_CRYPTO, "Portfolio — Crypto"))
 
+    weekly_layer1_passed = len(weekly_k)
     weekly_triggered = {s: info for s, info in weekly_k.items() if info["triggered"]}
 
     log.info("=" * 60)
-    log.info(f"  Weekly scanned   : {len(weekly_k)}")
-    log.info(f"  Weekly triggered : {len(weekly_triggered)}")
+    log.info(f"  Weekly universe   : {weekly_universe_total}")
+    log.info(f"  Passed Layer 1    : {weekly_layer1_passed}")
+    log.info(f"  Layer 2 triggered : {len(weekly_triggered)}")
     log.info("=" * 60)
 
-    send_telegram(build_message(weekly_triggered, total_scanned=len(weekly_k), run_type=run_type))
+    send_telegram(build_message(
+        weekly_triggered,
+        universe_total=weekly_universe_total,
+        layer1_passed=weekly_layer1_passed,
+        run_type=run_type,
+    ))
 
     # Log this week's holdings/indices notification so the last-day-of-month
     # digest (src/monthly_digest.py) can compile everything sent this month.
     if run_type == "scheduled":
-        append_weekly_log(today, weekly_triggered, len(weekly_k))
+        append_weekly_log(today, weekly_triggered, weekly_universe_total)
 
     # ── 2) MONTHLY TRACK — everything else, checked weekly, reported monthly ──
     month_key = today.strftime("%Y-%m")
@@ -796,7 +895,12 @@ def main():
         if info["triggered"]:
             existing = state["hits"].get(sym)
             if existing is None or info["k"] < existing["k"]:
-                state["hits"][sym] = {"k": info["k"], "prev_k": info["prev_k"], "date": today_str}
+                state["hits"][sym] = {
+                    "k": info["k"], "prev_k": info["prev_k"],
+                    "d": info["d"], "prev_d": info["prev_d"],
+                    "valuation_detail": info["valuation_detail"],
+                    "date": today_str,
+                }
 
     save_state(state)
     log.info(f"  Monthly state updated — {len(state['hits'])} cumulative hit(s) so far this month")
