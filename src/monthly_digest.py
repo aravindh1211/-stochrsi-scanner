@@ -101,8 +101,12 @@ def build_digest(entries: list, month_label: str) -> str:
             for sym, info in sorted(triggered.items(), key=lambda x: x[1]["k"]):
                 k = info["k"] if isinstance(info, dict) else info
                 prev_k = info.get("prev_k") if isinstance(info, dict) else None
+                d = info.get("d") if isinstance(info, dict) else None
+                prev_d = info.get("prev_d") if isinstance(info, dict) else None
                 icon = "🟢" if k <= 5 else "🟡"
-                if prev_k is not None:
+                if prev_k is not None and d is not None:
+                    lines.append(f"  {icon} {get_label(sym)}  →  K: {prev_k}→<b>{k}</b>  D: {prev_d}→{d}")
+                elif prev_k is not None:
                     lines.append(f"  {icon} {get_label(sym)}  →  K: {prev_k} → <b>{k}</b>")
                 else:
                     lines.append(f"  {icon} {get_label(sym)}  →  K = <b>{k}</b>")
