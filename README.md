@@ -2,37 +2,71 @@
 
 Scans **NSE stocks, US stocks, Global Indices, and Crypto** every Friday at **8:00 PM IST**
 (after both NSE and US markets have had a chance to close out the week).
-Sends a **Telegram alert** listing every instrument whose **weekly Stoch RSI K line was
-below threshold on the prior closed bar and is now turning up** — not merely sitting
-under the threshold, but actively curling upward out of an oversold reading.
-Runs 100% free on GitHub Actions.
+Runs a **two-layer screen** — a valuation filter first, then a timing filter — and
+sends a **Telegram alert** listing only what passes both. Runs 100% free on GitHub Actions.
 
 ---
 
-## 🧠 How It Works
+## 🧠 How It Works (v7 — two-layer screen)
 
-Replicates your Pine Script logic exactly:
+Every instrument is screened **in this order**: **Universe → Layer 1 (Valuation) →
+Layer 2 (Timing)**. An instrument that fails Layer 1 never even reaches Layer 2 —
+no wasted stochastic computation, and it simply doesn't appear in the output.
 
-| Pine Script | Python |
-|---|---|
-| `rsi(src, 14)` | Wilder's RMA — `rma(gain/loss, 14)` |
-| `stoch(rsi1, rsi1, rsi1, 14)` | Rolling min/max over RSI values |
-| `sma(stoch, 3)` | 3-period rolling mean = K line |
-| Alert when K turns up from oversold | Configurable via `STOCH_RSI_THRESHOLD` (default 20) |
+### Layer 1 — Valuation (`src/valuation.py`)
 
-**Trigger definition:** for each instrument, take the current closed weekly bar's K
-(`curr_k`) and the prior closed weekly bar's K (`prev_k`). The instrument fires when:
+Reduces false positives from names that are "oversold" but still historically
+expensive. An instrument is **cheap** when either:
 
+- current trailing PE sits in the **bottom 30th percentile** of its own
+  **5-year trailing-PE history** (reconstructed from quarterly EPS + weekly
+  price), **OR**
+- **PEG ratio < 1** — used for growth names (NVDA, META, ...) where PE alone is
+  misleading, and as the fallback whenever a clean 5y PE history can't be
+  reconstructed
+
+**Indices and crypto are exempt** (`^`-prefixed and `-USD` tickers) — there's no
+PE for a basket or a coin, so these always pass Layer 1 straight through.
+
+**Data-availability reality check:** yfinance's free quarterly-financials data is
+often thin — especially for NSE names — nowhere near a full 5 years in many
+cases. Rather than silently dropping instruments we can't get clean history for,
+the filter falls back to PEG, and if even that's unavailable, it **passes the
+instrument through** (`method: "no_data_passthrough"`) rather than excluding it
+by default. Every valuation decision — percentile, PEG, or passthrough — is
+logged and shown alongside the hit in Telegram, so it's auditable, not hidden.
+
+### Layer 2 — Timing (weekly Stoch RSI %K/%D crossover)
+
+Only computed for instruments that passed Layer 1. Uses **slower settings**
+than before — **(21, 5, 5)** instead of the old default (14, 3, 3) — specifically
+to cut down whipsaw crossovers on the weekly timeframe:
+
+| Setting | Old (v6) | New (v7) |
+|---|---|---|
+| RSI length | 14 | **21** |
+| Stochastic length | 14 | **21** |
+| %K smoothing | 3 | **5** |
+| %D smoothing (new) | — | **5** |
+
+**Trigger definition:** fires only on a **confirmed weekly close** —
 ```
-prev_k < STOCH_RSI_THRESHOLD   AND   curr_k > prev_k
+%K crosses above %D   (prev_k <= prev_d  AND  curr_k > curr_d)
+AND
+both %K and %D are below STOCH_RSI_THRESHOLD (default 20)
 ```
+A mere touch under the threshold with no crossover does **not** fire. K rising
+while still below D does **not** fire either — the actual cross must happen on
+this bar. The scanner also drops the most recent weekly bar if that week hasn't
+finished yet (`drop_incomplete_last_bar()`), so "confirmed on weekly close"
+really means closed, not a mid-week snapshot.
 
-This intentionally fires as soon as K starts turning up while still under the
-threshold — e.g. K going from 4 → 9 triggers just as much as K going from 18 → 23 —
-rather than waiting only for the exact bar where it crosses above the threshold.
-This means an instrument can trigger on consecutive weeks (once for each new week
-it keeps rising while under threshold, or right as it crosses above it) — that's
-by design, it reflects momentum building week over week.
+Replicates:
+```
+rsi1 = rsi(src, 21)
+k    = sma(stoch(rsi1, rsi1, rsi1, 21), 5)
+d    = sma(k, 5)
+```
 
 ---
 
@@ -152,23 +186,24 @@ No action needed — once the file is in your repo, GitHub runs it automatically
 
 ```
 📊 StochRSI Weekly Scanner  |  16 Jun 2026 (UTC)
-🔔 Weekly  |  Trigger: K turning up from below 20  |  Scanned: 141 instruments
-
-🇮🇳 Indian Indices
-  🟢 Nifty PSU Bank (^CNXPSUBANK)  →  K:  8.1 → 14.3  ↑
+🔔 Weekly  |  %K/%D cross-up below 20, confirmed on weekly close
+Universe: 141  |  Passed Layer 1 (valuation): 34  |  Layer 2 triggers: 2
 
 💼 Portfolio Holdings
-  🟢 Uno Minda (UNOMINDA.NS)  →  K:  3.8 → 9.1  ↑
-  🟡 Booking Holdings (BKNG)  →  K:  17.2 → 21.6  ↑
-
-🪙 Crypto
-  🟡 Ethereum (ETH)  →  K:  12.5 → 18.9  ↑
+  🟢 Uno Minda (UNOMINDA.NS)  →  K: 14.2→18.6  D: 16.1→17.9  ↑
+       PE 22.4 = 24th pct of own 260-wk history
+  🟡 Booking Holdings (BKNG)  →  K: 12.1→19.3  D: 15.0→18.1  ↑
+       PEG 0.87 (insufficient 5y PE history)
 
 ─────────────────────────
 🟢 Current K ≤ 5  →  Turning up from deeply oversold
-🟡 Current K 5–20+  →  Turning up from oversold zone
-💡 Weekly signals = higher conviction. Confirm before entry.
+🟡 Current K 5–20  →  Turning up from oversold zone
+💡 Layer 1 (cheap) + Layer 2 (confirmed cross) — higher conviction, still confirm before entry.
 ```
+
+Note the funnel: **141** instruments in the universe, only **34** were "cheap"
+enough to pass Layer 1, and of those only **2** also confirmed a weekly %K/%D
+cross-up — that's the whole point of running valuation first.
 
 ---
 
@@ -266,14 +301,25 @@ Cron format: `minute  hour  day  month  weekday`
 
 ---
 
-## 🔧 Changing the Alert Threshold
+## 🔧 Changing the Alert Threshold / Stoch RSI Settings
 
 **Option A — Permanent change:**
-Go to repo **Settings → Secrets and variables → Actions → Variables**
-Update `STOCH_RSI_THRESHOLD` to any value (e.g. `15` or `20`)
+Go to repo **Settings → Secrets and variables → Actions → Variables** and set any of:
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `STOCH_RSI_THRESHOLD` | `20` | Both %K and %D must be below this to trigger |
+| `STOCH_RSI_LENGTH` | `21` | RSI lookback |
+| `STOCH_LENGTH` | `21` | Stochastic lookback (applied to the RSI series) |
+| `SMOOTH_K` | `5` | %K smoothing |
+| `SMOOTH_D` | `5` | %D smoothing (= SMA of %K) |
 
 **Option B — One-time manual run:**
 Actions tab → Run workflow → enter a threshold in the input box before clicking Run
+
+To adjust the **valuation filter** instead (Layer 1), edit the constants at the
+top of `src/valuation.py` — `PE_PERCENTILE_CUTOFF` (default 30) and
+`PEG_CUTOFF` (default 1.0).
 
 ---
 
@@ -285,3 +331,7 @@ Actions tab → Run workflow → enter a threshold in the input box before click
 | Workflow not running automatically | Check Actions tab → re-enable if paused |
 | Ticker showing "insufficient data" | Yahoo Finance may not support it — try removing it |
 | `getUpdates` returns empty JSON | Send any message to your bot first, then retry |
+| Almost nothing ever triggers | Expected — Layer 1 is a real filter, not a formality. Check the run log for `Layer 1 fail` lines to see what got screened and why |
+| Many hits show `no_data_passthrough` | yfinance's free quarterly-financials data is thin for that ticker (common for NSE names) — it passed Layer 1 by default rather than being excluded; tighten `MIN_QUARTERS_FOR_PE_HISTORY` in `valuation.py` if you'd rather be stricter |
+| Run takes much longer than before | Expected — Layer 1 adds 1-3 yfinance calls per non-exempt ticker. Workflow timeout is set to 45 min to accommodate this |
+| "message is too long" in logs | Should no longer happen — results are chunked into multiple Telegram messages. If it still does, lower `TELEGRAM_CHAR_LIMIT` in the script |
