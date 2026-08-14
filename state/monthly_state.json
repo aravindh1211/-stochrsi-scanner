@@ -165,8 +165,12 @@
       "k": 7.82
     },
     "TATASTEEL.NS": {
-      "date": "07 Aug",
-      "k": 15.18
+      "d": 5.97,
+      "date": "14 Aug",
+      "k": 8.82,
+      "prev_d": 6.71,
+      "prev_k": 6.27,
+      "valuation_detail": "no PE/PEG data \u2014 Layer 1 skipped"
     },
     "TTD": {
       "date": "07 Aug",
@@ -175,6 +179,14 @@
     "TXN": {
       "date": "07 Aug",
       "k": 2.73
+    },
+    "VEDL.NS": {
+      "d": 6.27,
+      "date": "14 Aug",
+      "k": 6.49,
+      "prev_d": 6.58,
+      "prev_k": 5.86,
+      "valuation_detail": "no PE/PEG data \u2014 Layer 1 skipped"
     }
   },
   "month": "2026-08"
