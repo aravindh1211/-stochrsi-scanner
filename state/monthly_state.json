@@ -140,6 +140,14 @@
       "date": "07 Aug",
       "k": 16.34
     },
+    "PFC.NS": {
+      "d": 12.46,
+      "date": "21 Aug",
+      "k": 13.94,
+      "prev_d": 14.25,
+      "prev_k": 13.94,
+      "valuation_detail": "no PE/PEG data \u2014 Layer 1 skipped"
+    },
     "POWERGRID.NS": {
       "date": "07 Aug",
       "k": 6.87
