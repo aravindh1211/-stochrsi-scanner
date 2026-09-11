@@ -1,4 +1,29 @@
 {
-  "hits": {},
+  "hits": {
+    "AXISBANK.NS": {
+      "d": 12.29,
+      "date": "11 Sep",
+      "k": 17.87,
+      "prev_d": 13.78,
+      "prev_k": 11.2,
+      "valuation_detail": "PEG 0.54 (insufficient 5y PE history)"
+    },
+    "COALINDIA.NS": {
+      "d": 1.37,
+      "date": "11 Sep",
+      "k": 5.66,
+      "prev_d": 0.41,
+      "prev_k": 0.29,
+      "valuation_detail": "PEG 0.87 (insufficient 5y PE history)"
+    },
+    "MU": {
+      "d": 12.16,
+      "date": "11 Sep",
+      "k": 14.52,
+      "prev_d": 13.34,
+      "prev_k": 10.48,
+      "valuation_detail": "PEG 0.14 (insufficient 5y PE history)"
+    }
+  },
   "month": "2026-09"
 }
