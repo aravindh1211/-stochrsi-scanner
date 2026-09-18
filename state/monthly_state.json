@@ -23,6 +23,14 @@
       "prev_d": 13.34,
       "prev_k": 10.48,
       "valuation_detail": "PEG 0.14 (insufficient 5y PE history)"
+    },
+    "ON": {
+      "d": 2.19,
+      "date": "18 Sep",
+      "k": 2.34,
+      "prev_d": 3.56,
+      "prev_k": 1.13,
+      "valuation_detail": "PEG 0.17 (insufficient 5y PE history)"
     }
   },
   "month": "2026-09"
