@@ -1,4 +1,21 @@
 {
-  "hits": {},
+  "hits": {
+    "AMAT": {
+      "d": 1.65,
+      "date": "02 Oct",
+      "k": 2.98,
+      "prev_d": 2.05,
+      "prev_k": 0.13,
+      "valuation_detail": "PEG 0.83 (insufficient 5y PE history)"
+    },
+    "GFS": {
+      "d": 3.13,
+      "date": "02 Oct",
+      "k": 4.02,
+      "prev_d": 2.97,
+      "prev_k": 2.26,
+      "valuation_detail": "PEG 0.72 (insufficient 5y PE history)"
+    }
+  },
   "month": "2026-10"
 }
