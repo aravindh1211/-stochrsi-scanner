@@ -15,6 +15,38 @@
       "prev_d": 2.97,
       "prev_k": 2.26,
       "valuation_detail": "PEG 0.72 (insufficient 5y PE history)"
+    },
+    "ICICIGI.NS": {
+      "d": 12.96,
+      "date": "09 Oct",
+      "k": 15.64,
+      "prev_d": 15.44,
+      "prev_k": 7.47,
+      "valuation_detail": "no PE/PEG data \u2014 Layer 1 skipped"
+    },
+    "MCHP": {
+      "d": 7.14,
+      "date": "09 Oct",
+      "k": 10.71,
+      "prev_d": 7.48,
+      "prev_k": 4.91,
+      "valuation_detail": "PEG 0.23 (insufficient 5y PE history)"
+    },
+    "NXPI": {
+      "d": 8.14,
+      "date": "09 Oct",
+      "k": 10.76,
+      "prev_d": 8.34,
+      "prev_k": 6.93,
+      "valuation_detail": "PEG 0.47 (insufficient 5y PE history)"
+    },
+    "TXN": {
+      "d": 9.19,
+      "date": "09 Oct",
+      "k": 12.68,
+      "prev_d": 10.55,
+      "prev_k": 6.66,
+      "valuation_detail": "PEG 0.97 (insufficient 5y PE history)"
     }
   },
   "month": "2026-10"
