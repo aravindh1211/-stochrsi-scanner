@@ -8,6 +8,14 @@
       "prev_k": 0.13,
       "valuation_detail": "PEG 0.83 (insufficient 5y PE history)"
     },
+    "CSCO": {
+      "d": 4.43,
+      "date": "16 Oct",
+      "k": 9.54,
+      "prev_d": 5.02,
+      "prev_k": 4.23,
+      "valuation_detail": "PEG 0.98 (insufficient 5y PE history)"
+    },
     "GFS": {
       "d": 3.13,
       "date": "02 Oct",
@@ -22,6 +30,14 @@
       "k": 15.64,
       "prev_d": 15.44,
       "prev_k": 7.47,
+      "valuation_detail": "no PE/PEG data \u2014 Layer 1 skipped"
+    },
+    "LUPIN.NS": {
+      "d": 0.3,
+      "date": "16 Oct",
+      "k": 0.5,
+      "prev_d": 0.78,
+      "prev_k": 0.5,
       "valuation_detail": "no PE/PEG data \u2014 Layer 1 skipped"
     },
     "MCHP": {
@@ -39,6 +55,14 @@
       "prev_d": 8.34,
       "prev_k": 6.93,
       "valuation_detail": "PEG 0.47 (insufficient 5y PE history)"
+    },
+    "PFC.NS": {
+      "d": 1.57,
+      "date": "16 Oct",
+      "k": 3.16,
+      "prev_d": 2.14,
+      "prev_k": 1.18,
+      "valuation_detail": "no PE/PEG data \u2014 Layer 1 skipped"
     },
     "TXN": {
       "d": 9.19,
