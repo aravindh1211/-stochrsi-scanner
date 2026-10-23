@@ -1,5 +1,21 @@
 {
   "hits": {
+    "ADANIGREEN.NS": {
+      "d": 6.38,
+      "date": "23 Oct",
+      "k": 7.04,
+      "prev_d": 8.93,
+      "prev_k": 4.12,
+      "valuation_detail": "no PE/PEG data \u2014 Layer 1 skipped"
+    },
+    "ALGN": {
+      "d": 1.39,
+      "date": "23 Oct",
+      "k": 3.14,
+      "prev_d": 3.91,
+      "prev_k": 0.0,
+      "valuation_detail": "PEG 0.63 (insufficient 5y PE history)"
+    },
     "AMAT": {
       "d": 1.65,
       "date": "02 Oct",
@@ -30,6 +46,14 @@
       "k": 15.64,
       "prev_d": 15.44,
       "prev_k": 7.47,
+      "valuation_detail": "no PE/PEG data \u2014 Layer 1 skipped"
+    },
+    "IRFC.NS": {
+      "d": 3.33,
+      "date": "23 Oct",
+      "k": 11.16,
+      "prev_d": 2.25,
+      "prev_k": 0.82,
       "valuation_detail": "no PE/PEG data \u2014 Layer 1 skipped"
     },
     "LUPIN.NS": {
@@ -63,6 +87,14 @@
       "prev_d": 2.14,
       "prev_k": 1.18,
       "valuation_detail": "no PE/PEG data \u2014 Layer 1 skipped"
+    },
+    "TATACONSUM.NS": {
+      "d": 1.52,
+      "date": "23 Oct",
+      "k": 4.29,
+      "prev_d": 1.65,
+      "prev_k": 0.65,
+      "valuation_detail": "PEG 0.55 (insufficient 5y PE history)"
     },
     "TXN": {
       "d": 9.19,
